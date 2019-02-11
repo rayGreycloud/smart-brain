@@ -25,7 +25,10 @@ const initialState = {
   input: '',
   imageUrl: '',
   box: {},
+// temp for dev
+//  route: 'home',
   route: 'signin',
+//  isSignedIn: true,
   isSignedIn: false,
   user: {
     id: '',
@@ -106,7 +109,7 @@ class App extends Component {
 
   onRouteChange = (route) => {
     if (route === 'signout') {
-      this.setState(initialState)
+      return this.setState(initialState)
     } else if (route === 'home') {
       this.setState({isSignedIn: true})
     }
