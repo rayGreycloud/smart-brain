@@ -7,6 +7,8 @@ import Register from './components/Register/Register';
 import Logo from './components/Logo/Logo';
 import ImageLinkForm from './components/ImageLinkForm/ImageLinkForm';
 import Rank from './components/Rank/Rank';
+import Modal from './components/Modal/Modal';
+import Profile from './components/Profile/Profile';
 import './App.css';
 
 const particlesOptions = {
@@ -19,25 +21,28 @@ const particlesOptions = {
       }
     }
   }
-}
+};
 
 const initialState = {
   input: '',
   imageUrl: '',
   box: {},
-// temp for dev
-//  route: 'home',
+  // temp for dev
+  //  route: 'home',
   route: 'signin',
-//  isSignedIn: true,
+  //  isSignedIn: true,
   isSignedIn: false,
+  isProfileOpen: false,
   user: {
     id: '',
     name: '',
     email: '',
     entries: 0,
-    joined: ''
+    joined: '',
+    age: '',
+    pet: ''
   }
-}
+};
 
 class App extends Component {
   constructor() {
@@ -45,104 +50,139 @@ class App extends Component {
     this.state = initialState;
   }
 
-  loadUser = (data) => {
-    this.setState({user: {
-      id: data.id,
-      name: data.name,
-      email: data.email,
-      entries: data.entries,
-      joined: data.joined
-    }})
-  }
+  loadUser = data => {
+    this.setState({
+      user: {
+        id: data.id,
+        name: data.name,
+        email: data.email,
+        entries: data.entries,
+        joined: data.joined,
+        age: data.age,
+        pet: data.pet
+      }
+    });
+  };
 
-  calculateFaceLocation = (data) => {
-    const clarifaiFace = data.outputs[0].data.regions[0].region_info.bounding_box;
+  calculateFaceLocation = data => {
+    const clarifaiFace =
+      data.outputs[0].data.regions[0].region_info.bounding_box;
     const image = document.getElementById('inputimage');
     const width = Number(image.width);
     const height = Number(image.height);
     return {
       leftCol: clarifaiFace.left_col * width,
       topRow: clarifaiFace.top_row * height,
-      rightCol: width - (clarifaiFace.right_col * width),
-      bottomRow: height - (clarifaiFace.bottom_row * height)
-    }
-  }
+      rightCol: width - clarifaiFace.right_col * width,
+      bottomRow: height - clarifaiFace.bottom_row * height
+    };
+  };
 
-  displayFaceBox = (box) => {
-    this.setState({box: box});
-  }
+  displayFaceBox = box => {
+    this.setState({ box: box });
+  };
 
-  onInputChange = (event) => {
-    this.setState({input: event.target.value});
-  }
+  onInputChange = event => {
+    this.setState({ input: event.target.value });
+  };
 
   onButtonSubmit = () => {
-    this.setState({imageUrl: this.state.input});
-      fetch('http://localhost:3000/imageurl', {
-        method: 'post',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          input: this.state.input
-        })
+    if (!this.state.input) return;
+
+    this.setState({ imageUrl: this.state.input });
+    fetch('http://localhost:3000/imageurl', {
+      method: 'post',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        input: this.state.input
       })
+    })
       .then(response => response.json())
       .then(response => {
         if (response) {
           fetch('http://localhost:3000/image', {
             method: 'put',
-            headers: {'Content-Type': 'application/json'},
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               id: this.state.user.id
             })
           })
             .then(response => response.json())
             .then(count => {
-              this.setState(Object.assign(this.state.user, { entries: count}))
+              this.setState(Object.assign(this.state.user, { entries: count }));
             })
-            .catch(console.log)
-
+            .catch(console.log);
         }
-        this.displayFaceBox(this.calculateFaceLocation(response))
+        this.displayFaceBox(this.calculateFaceLocation(response));
       })
       .catch(err => console.log(err));
-  }
+  };
 
-  onRouteChange = (route) => {
+  onRouteChange = route => {
     if (route === 'signout') {
-      return this.setState(initialState)
+      return this.setState(initialState);
     } else if (route === 'home') {
-      this.setState({isSignedIn: true})
+      this.setState({ isSignedIn: true });
     }
-    this.setState({route: route});
-  }
+    this.setState({ route: route });
+  };
+
+  toggleModal = () => {
+    this.setState(prevState => ({
+      isProfileOpen: !prevState.isProfileOpen
+    }));
+  };
 
   render() {
-    const { isSignedIn, imageUrl, route, box } = this.state;
+    const {
+      isSignedIn,
+      isProfileOpen,
+      imageUrl,
+      route,
+      box,
+      user
+    } = this.state;
     return (
       <div className="App">
-         <Particles className='particles'
-          params={particlesOptions}
+        <Particles className="particles" params={particlesOptions} />
+        <Navigation
+          isSignedIn={isSignedIn}
+          onRouteChange={this.onRouteChange}
+          toggleModal={this.toggleModal}
         />
-        <Navigation isSignedIn={isSignedIn} onRouteChange={this.onRouteChange} />
-        { route === 'home'
-          ? <div>
-              <Logo />
-              <Rank
-                name={this.state.user.name}
-                entries={this.state.user.entries}
-              />
-              <ImageLinkForm
-                onInputChange={this.onInputChange}
-                onButtonSubmit={this.onButtonSubmit}
-              />
-              <FaceRecognition box={box} imageUrl={imageUrl} />
-            </div>
-          : (
-             route === 'signin'
-             ? <Signin loadUser={this.loadUser} onRouteChange={this.onRouteChange}/>
-             : <Register loadUser={this.loadUser} onRouteChange={this.onRouteChange}/>
-            )
-        }
+
+        {isProfileOpen && (
+          <Modal>
+            <Profile
+              user={user}
+              loadUser={this.loadUser}
+              isProfileOpen={isProfileOpen}
+              toggleModal={this.toggleModal}
+            />
+          </Modal>
+        )}
+
+        {route === 'home' ? (
+          <div>
+            <Logo />
+            <Rank
+              name={this.state.user.name}
+              entries={this.state.user.entries}
+            />
+            <ImageLinkForm
+              onInputChange={this.onInputChange}
+              onButtonSubmit={this.onButtonSubmit}
+            />
+            <FaceRecognition box={box} imageUrl={imageUrl} />
+          </div>
+        ) : route === 'signin' ? (
+          <Signin loadUser={this.loadUser} onRouteChange={this.onRouteChange} />
+        ) : (
+          <Register
+            loadUser={this.loadUser}
+            onRouteChange={this.onRouteChange}
+          />
+        )}
       </div>
     );
   }
